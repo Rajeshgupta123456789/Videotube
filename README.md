@@ -261,5 +261,5 @@ Cloud/DevOps Engineer | AWS | Kubernetes | Jenkins | Terraform
 
 ```
 
-Let me know if you want this included in your repo directly or zipped with your code again.
+
 ```
