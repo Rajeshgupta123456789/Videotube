@@ -1,5 +1,11 @@
-
 const express = require('express');
 const app = express();
-app.get('/', (req, res) => res.send('Backend running'));
-app.listen(3000, () => console.log('App listening on port 3000'));
+const PORT = 3000;
+
+app.get("/", (req, res) => {
+  res.send("Welcome to the VideoTube Backend API!");
+});
+
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
