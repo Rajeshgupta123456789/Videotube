@@ -1,11 +1,13 @@
 
-resource "aws_eks_cluster" "main" {
-  name     = var.cluster_name
+resource "aws_eks_cluster" "this" {
+    name     = var.cluster_name
   role_arn = var.cluster_role_arn
 
   vpc_config {
-    subnet_ids = var.subnet_ids
+    subnet_ids              = var.public_subnet_ids
+    endpoint_public_access  = true
+    endpoint_private_access = false
   }
 
-  depends_on = [aws_iam_role_policy_attachment.eks_cluster_AmazonEKSClusterPolicy]
+  version = "1.33"
 }
