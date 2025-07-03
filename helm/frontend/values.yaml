@@ -1,0 +1,18 @@
+replicaCount: 1
+
+image:
+  repository: 208496905340.dkr.ecr.us-east-1.amazonaws.com/videotube-frontend
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: LoadBalancer
+  port: 80
+
+resources: {}
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
