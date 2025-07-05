@@ -23,6 +23,8 @@ pipeline {
           secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
         ]]) {
           sh '''
+            export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+            export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
             aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
           '''
         }
@@ -31,6 +33,10 @@ pipeline {
 
     stage('Deploy Frontend with Helm') {
       steps {
+        sh '''
+          export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+          export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+        '''
         dir('helm/frontend') {
           sh '''
             helm upgrade --install frontend . \
@@ -42,6 +48,10 @@ pipeline {
 
     stage('Deploy Backend with Helm') {
       steps {
+        sh '''
+          export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+          export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+        '''
         dir('helm/backend') {
           sh '''
             helm upgrade --install backend . \
