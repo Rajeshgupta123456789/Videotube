@@ -11,16 +11,16 @@ pipeline {
       }
     }
 
-    stage('Deploy Frontend with Helm') {
-      steps {
-        sh 'helm upgrade --install frontend ./charts/frontend'
-      }
-    }
+stage('Deploy Frontend with Helm') {
+  steps {
+    sh 'helm upgrade --install frontend ./helm/frontend'
+  }
+}
 
-    stage('Deploy Backend with Helm') {
-      steps {
-        sh 'helm upgrade --install backend ./charts/backend'
-      }
-    }
+stage('Deploy Backend with Helm') {
+  steps {
+    sh 'helm upgrade --install backend ./helm/backend'
+  }
+}
   }
 }
