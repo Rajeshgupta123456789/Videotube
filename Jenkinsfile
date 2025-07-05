@@ -17,16 +17,10 @@ pipeline {
 
     stage('Update kubeconfig') {
       steps {
-        withCredentials([[
-          $class: 'AmazonWebServicesCredentialsBinding',
-          credentialsId: 'd465032a-772e-4c90-9d2e-789476cb2af0'
-        ]]) {
-          sh '''
-            aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
-            aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
-            aws configure set region $AWS_REGION
+        withAWS(region: "${AWS_REGION}", credentials: 'd465032a-772e-4c90-9d2e-789476cb2af0') {
+          sh """
             aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
-          '''
+          """
         }
       }
     }
@@ -34,9 +28,7 @@ pipeline {
     stage('Deploy Frontend with Helm') {
       steps {
         dir("${FRONTEND_HELM_DIR}") {
-          sh '''
-            helm upgrade --install frontend . --namespace default --create-namespace
-          '''
+          sh 'helm upgrade --install frontend . --namespace default --create-namespace'
         }
       }
     }
@@ -44,9 +36,7 @@ pipeline {
     stage('Deploy Backend with Helm') {
       steps {
         dir("${BACKEND_HELM_DIR}") {
-          sh '''
-            helm upgrade --install backend . --namespace default --create-namespace
-          '''
+          sh 'helm upgrade --install backend . --namespace default --create-namespace'
         }
       }
     }
