@@ -8,13 +8,6 @@ pipeline {
     BACKEND_CHART = 'charts/backend'
   }
 
-  stages {
-    stage('Checkout Code') {
-      steps {
-        git 'https://github.com/Rajeshgupta123456789/Videotube.git'
-      }
-    }
-
     stage('Update kubeconfig') {
       steps {
         sh """
