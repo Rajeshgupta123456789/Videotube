@@ -25,6 +25,7 @@ pipeline {
           sh '''
             export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
             export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+
             aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
           '''
         }
@@ -33,41 +34,53 @@ pipeline {
 
     stage('Deploy Frontend with Helm') {
       steps {
-        sh '''
-          export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
-          export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
-        '''
-        dir('helm/frontend') {
-          sh '''
-            helm upgrade --install frontend . \
-              --namespace $HELM_NAMESPACE --create-namespace
-          '''
+        withCredentials([[
+          $class: 'AmazonWebServicesCredentialsBinding',
+          credentialsId: 'aws-creds',
+          accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+          secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+        ]]) {
+          dir('helm/frontend') {
+            sh '''
+              export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+              export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+
+              helm upgrade --install frontend . \
+                --namespace $HELM_NAMESPACE --create-namespace
+            '''
+          }
         }
       }
     }
 
     stage('Deploy Backend with Helm') {
       steps {
-        sh '''
-          export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
-          export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
-        '''
-        dir('helm/backend') {
-          sh '''
-            helm upgrade --install backend . \
-              --namespace $HELM_NAMESPACE --create-namespace
-          '''
+        withCredentials([[
+          $class: 'AmazonWebServicesCredentialsBinding',
+          credentialsId: 'aws-creds',
+          accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+          secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+        ]]) {
+          dir('helm/backend') {
+            sh '''
+              export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+              export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+
+              helm upgrade --install backend . \
+                --namespace $HELM_NAMESPACE --create-namespace
+            '''
+          }
         }
       }
     }
   }
 
   post {
+    success {
+      echo '✅ Successfully deployed Frontend & Backend using Helm on EKS!'
+    }
     failure {
       echo '❌ Deployment failed. Please check the logs.'
-    }
-    success {
-      echo '✅ Deployment successful!'
     }
   }
 }
