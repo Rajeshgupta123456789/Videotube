@@ -15,22 +15,26 @@ pipeline {
 
     stage('Update kubeconfig') {
       steps {
-        withAWS(credentials: 'd465032a-772e-4c90-9d2e-789476cb2af0', region: "${env.AWS_REGION}") {
-          sh 'aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME'
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',
+                          credentialsId: 'd465032a-772e-4c90-9d2e-789476cb2af0',
+                          accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                          secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+          sh '''
+            aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
+          '''
         }
       }
     }
 
     stage('Deploy Frontend with Helm') {
       steps {
-        withAWS(credentials: 'd465032a-772e-4c90-9d2e-789476cb2af0', region: "${env.AWS_REGION}") {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',
+                          credentialsId: 'd465032a-772e-4c90-9d2e-789476cb2af0',
+                          accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                          secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
           dir('helm/frontend') {
             sh '''
               export AWS_REGION=$AWS_REGION
-              export AWS_PROFILE=default
-              export AWS_ACCESS_KEY_ID=$(aws configure get aws_access_key_id)
-              export AWS_SECRET_ACCESS_KEY=$(aws configure get aws_secret_access_key)
-
               helm upgrade --install frontend . --namespace default --create-namespace
             '''
           }
@@ -40,14 +44,13 @@ pipeline {
 
     stage('Deploy Backend with Helm') {
       steps {
-        withAWS(credentials: 'd465032a-772e-4c90-9d2e-789476cb2af0', region: "${env.AWS_REGION}") {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',
+                          credentialsId: 'd465032a-772e-4c90-9d2e-789476cb2af0',
+                          accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                          secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
           dir('helm/backend') {
             sh '''
               export AWS_REGION=$AWS_REGION
-              export AWS_PROFILE=default
-              export AWS_ACCESS_KEY_ID=$(aws configure get aws_access_key_id)
-              export AWS_SECRET_ACCESS_KEY=$(aws configure get aws_secret_access_key)
-
               helm upgrade --install backend . --namespace default --create-namespace
             '''
           }
