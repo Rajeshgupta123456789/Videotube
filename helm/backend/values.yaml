@@ -16,3 +16,25 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+env:
+  - name: POSTGRES_HOST
+    valueFrom:
+      secretKeyRef:
+        name: postgres-credentials
+        key: POSTGRES_HOST
+  - name: POSTGRES_DB
+    valueFrom:
+      secretKeyRef:
+        name: postgres-credentials
+        key: POSTGRES_DB
+  - name: POSTGRES_USER
+    valueFrom:
+      secretKeyRef:
+        name: postgres-credentials
+        key: POSTGRES_USER
+  - name: POSTGRES_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: postgres-credentials
+        key: POSTGRES_PASSWORD
