@@ -38,6 +38,18 @@ resource "aws_subnet" "public_b" {
   }
 }
 
+resource "aws_subnet" "private" {
+  count             = 2
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = var.private_subnet_cidrs[count.index]
+  availability_zone = var.availability_zones[count.index]
+  map_public_ip_on_launch = false
+
+  tags = {
+    Name = "private-subnet-${count.index}"
+  }
+}
+
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
 
