@@ -47,3 +47,14 @@ module "rds" {
   db_name             = "videotube"
   secret_arn          = "arn:aws:secretsmanager:us-east-1:208496905340:secret:videotube/rds/postgres-hTiQPt"
 }
+
+module "s3" {
+  source        = "./s3"
+  bucket_name   = "videotube-user-uploads"
+  enable_versioning = true
+}
+
+module "cloudfront" {
+  source                  = "./cloudfront"
+  s3_bucket_domain_name   = module.s3.bucket_domain_name
+}
