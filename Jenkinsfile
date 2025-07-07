@@ -2,12 +2,9 @@ pipeline {
   agent any
 
   environment {
-    AWS_REGION      = 'us-east-1'
-    CLUSTER_NAME    = 'my-eks-cluster'
-    HELM_NAMESPACE  = 'default'
-    BACKEND_IMAGE   = '208496905340.dkr.ecr.us-east-1.amazonaws.com/videotube-backend'
-    FRONTEND_IMAGE  = '208496905340.dkr.ecr.us-east-1.amazonaws.com/videotube-frontend'
-    IMAGE_TAG       = "${BUILD_NUMBER}"
+    AWS_REGION = 'us-east-1'
+    CLUSTER_NAME = 'my-eks-cluster'
+    HELM_NAMESPACE = 'default'
   }
 
   stages {
@@ -19,12 +16,16 @@ pipeline {
 
     stage('Update kubeconfig') {
       steps {
-        withCredentials([[ $class: 'AmazonWebServicesCredentialsBinding',
+        withCredentials([[ 
+          $class: 'AmazonWebServicesCredentialsBinding', 
           credentialsId: 'aws-creds',
           accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-          secretKeyVariable: 'AWS_SECRET_ACCESS_KEY' ]]) {
-
+          secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+        ]]) {
           sh '''
+            export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+            export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+
             aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
           '''
         }
@@ -33,14 +34,14 @@ pipeline {
 
     stage('Login to ECR') {
       steps {
-        withCredentials([[ $class: 'AmazonWebServicesCredentialsBinding',
+        withCredentials([[ 
+          $class: 'AmazonWebServicesCredentialsBinding', 
           credentialsId: 'aws-creds',
           accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-          secretKeyVariable: 'AWS_SECRET_ACCESS_KEY' ]]) {
-
+          secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+        ]]) {
           sh '''
-            aws ecr get-login-password --region $AWS_REGION | \
-            docker login --username AWS --password-stdin $BACKEND_IMAGE
+            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin 208496905340.dkr.ecr.$AWS_REGION.amazonaws.com/videotube-backend
           '''
         }
       }
@@ -50,25 +51,22 @@ pipeline {
       steps {
         dir('docker/backend') {
           script {
+            def tag = "53"
+            def repo = "208496905340.dkr.ecr.${env.AWS_REGION}.amazonaws.com/videotube-backend"
             def imageExists = sh(
-              script: """
-                aws ecr describe-images \
-                  --repository-name videotube-backend \
-                  --image-ids imageTag=$IMAGE_TAG \
-                  --region $AWS_REGION >/dev/null 2>&1
-              """,
+              script: "aws ecr describe-images --repository-name videotube-backend --image-ids imageTag=${tag} --region ${env.AWS_REGION}",
               returnStatus: true
             ) == 0
 
-            if (imageExists) {
-              echo "✅ Backend image already exists in ECR. Skipping build."
-            } else {
+            if (!imageExists) {
               sh """
-                docker build -t $BACKEND_IMAGE:$IMAGE_TAG .
-                docker tag $BACKEND_IMAGE:$IMAGE_TAG $BACKEND_IMAGE:latest
-                docker push $BACKEND_IMAGE:$IMAGE_TAG
-                docker push $BACKEND_IMAGE:latest
+                docker build -t ${repo}:${tag} .
+                docker tag ${repo}:${tag} ${repo}:latest
+                docker push ${repo}:${tag}
+                docker push ${repo}:latest
               """
+            } else {
+              echo "✅ Backend image with tag ${tag} already exists in ECR. Skipping build."
             }
           }
         }
@@ -79,25 +77,22 @@ pipeline {
       steps {
         dir('docker/frontend') {
           script {
+            def tag = "53"
+            def repo = "208496905340.dkr.ecr.${env.AWS_REGION}.amazonaws.com/videotube-frontend"
             def imageExists = sh(
-              script: """
-                aws ecr describe-images \
-                  --repository-name videotube-frontend \
-                  --image-ids imageTag=$IMAGE_TAG \
-                  --region $AWS_REGION >/dev/null 2>&1
-              """,
+              script: "aws ecr describe-images --repository-name videotube-frontend --image-ids imageTag=${tag} --region ${env.AWS_REGION}",
               returnStatus: true
             ) == 0
 
-            if (imageExists) {
-              echo "✅ Frontend image already exists in ECR. Skipping build."
-            } else {
+            if (!imageExists) {
               sh """
-                docker build -t $FRONTEND_IMAGE:$IMAGE_TAG .
-                docker tag $FRONTEND_IMAGE:$IMAGE_TAG $FRONTEND_IMAGE:latest
-                docker push $FRONTEND_IMAGE:$IMAGE_TAG
-                docker push $FRONTEND_IMAGE:latest
+                docker build -t ${repo}:${tag} .
+                docker tag ${repo}:${tag} ${repo}:latest
+                docker push ${repo}:${tag}
+                docker push ${repo}:latest
               """
+            } else {
+              echo "✅ Frontend image with tag ${tag} already exists in ECR. Skipping build."
             }
           }
         }
@@ -106,26 +101,50 @@ pipeline {
 
     stage('Deploy Frontend with Helm') {
       steps {
-        dir('helm/frontend') {
-          sh '''
-            helm upgrade --install frontend . \
-              --namespace $HELM_NAMESPACE --create-namespace \
-              --set image.repository=$FRONTEND_IMAGE \
-              --set image.tag=$IMAGE_TAG
-          '''
+        withCredentials([[ 
+          $class: 'AmazonWebServicesCredentialsBinding', 
+          credentialsId: 'aws-creds',
+          accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+          secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+        ]]) {
+          dir('helm/frontend') {
+            sh '''
+              export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+              export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+
+              aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
+
+              helm upgrade --install frontend . \
+                --namespace $HELM_NAMESPACE --create-namespace \
+                --set image.repository=208496905340.dkr.ecr.us-east-1.amazonaws.com/videotube-frontend \
+                --set image.tag=53
+            '''
+          }
         }
       }
     }
 
     stage('Deploy Backend with Helm') {
       steps {
-        dir('helm/backend') {
-          sh '''
-            helm upgrade --install backend . \
-              --namespace $HELM_NAMESPACE --create-namespace \
-              --set image.repository=$BACKEND_IMAGE \
-              --set image.tag=$IMAGE_TAG
-          '''
+        withCredentials([[ 
+          $class: 'AmazonWebServicesCredentialsBinding', 
+          credentialsId: 'aws-creds',
+          accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+          secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+        ]]) {
+          dir('helm/backend') {
+            sh '''
+              export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+              export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+
+              aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
+
+              helm upgrade --install backend . \
+                --namespace $HELM_NAMESPACE --create-namespace \
+                --set image.repository=208496905340.dkr.ecr.us-east-1.amazonaws.com/videotube-backend \
+                --set image.tag=53
+            '''
+          }
         }
       }
     }
@@ -133,10 +152,10 @@ pipeline {
 
   post {
     success {
-      echo '✅ Successfully built, pushed, and deployed backend and frontend to EKS!'
+      echo '✅ Successfully deployed Frontend & Backend using Helm on EKS!'
     }
     failure {
-      echo '❌ Pipeline failed. Please check the logs above.'
+      echo '❌ Pipeline failed. Please check the logs.'
     }
   }
 }
