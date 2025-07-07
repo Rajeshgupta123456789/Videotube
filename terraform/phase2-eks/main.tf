@@ -66,3 +66,10 @@ module "lambda_presigned" {
   db_host          = module.rds.db_endpoint
   db_name          = "videotube"
 }
+
+module "redis" {
+  source             = "./redis"
+  vpc_id             = module.vpc.vpc_id
+  private_subnet_ids = module.vpc.private_subnet_ids
+  app_sg_id          = module.vpc.security_group_id
+}
