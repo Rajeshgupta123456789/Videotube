@@ -38,3 +38,10 @@ env:
       secretKeyRef:
         name: postgres-credentials
         key: POSTGRES_PASSWORD
+
+env:
+  - name: REDIS_HOST
+    valueFrom:
+      secretKeyRef:
+        name: redis-secret
+        key: REDIS_HOST
