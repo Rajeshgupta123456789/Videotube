@@ -3,6 +3,9 @@ const app = express();
 const PORT = 3000;
 
 const redis = require("./redisClient");
+const metricsHandler = require("./metrics");
+
+app.get("/metrics", metricsHandler);
 
 
 app.get("/", (req, res) => {
@@ -23,6 +26,7 @@ app.get("/cache-example", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 app.listen(PORT, () => {
   console.log(`🚀  Server running on port ${PORT}`);
