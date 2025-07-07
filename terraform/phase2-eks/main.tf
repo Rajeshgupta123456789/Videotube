@@ -58,3 +58,11 @@ module "cloudfront" {
   source                  = "./cloudfront"
   s3_bucket_domain_name   = module.s3.bucket_domain_name
 }
+
+module "lambda_presigned" {
+  source           = "./lambda"
+  s3_bucket_name   = module.s3.bucket_name
+  db_secret_arn    = module.rds.secret_arn
+  db_host          = module.rds.db_endpoint
+  db_name          = "videotube"
+}
