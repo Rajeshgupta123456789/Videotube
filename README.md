@@ -162,7 +162,7 @@ docker build -t videotube-backend ./backend/
 docker build -t videotube-frontend ./frontend/
 ```
 
-Push to AWS ECR or Docker Hub:
+Push to AWS ECR :
 
 ```bash
 # Docker Hub
