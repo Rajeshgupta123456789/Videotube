@@ -8,4 +8,23 @@
   <h1>Welcome to VideoTube</h1>
   <p>Streaming made simple and seamless.</p>
 </body>
+
+  <!-- Add below inside your main content container -->
+<div class="video-controls">
+  <button onclick="likeVideo()">👍 Like</button>
+  <button onclick="shareVideo()">🔗 Share</button>
+  <button onclick="toggleComments()">💬 Comments</button>
+  <div id="comments-section" style="display:none;">
+    <textarea id="comment-input" placeholder="Write your comment..."></textarea>
+    <button onclick="submitComment()">Post</button>
+    <div id="comments-list"></div>
+  </div>
+</div>
+
+<!-- Upload button for authenticated users -->
+<div id="upload-section" style="display:none;">
+  <input type="file" id="video-upload">
+  <button onclick="uploadVideo()">Upload</button>
+</div>
+
 </html>
