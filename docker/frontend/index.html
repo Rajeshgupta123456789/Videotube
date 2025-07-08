@@ -7,6 +7,67 @@
 <body>
   <h1>Welcome to VideoTube</h1>
   <p>Streaming made simple and seamless.</p>
+  <script>
+function likeVideo() {
+  alert("You liked the video!");
+}
+
+function shareVideo() {
+  navigator.clipboard.writeText(window.location.href);
+  alert("Link copied to clipboard!");
+}
+
+function toggleComments() {
+  const section = document.getElementById('comments-section');
+  section.style.display = section.style.display === 'none' ? 'block' : 'none';
+}
+
+function submitComment() {
+  const comment = document.getElementById('comment-input').value;
+  const list = document.getElementById('comments-list');
+  const entry = document.createElement('div');
+  entry.innerText = comment;
+  list.appendChild(entry);
+  document.getElementById('comment-input').value = '';
+}
+
+function uploadVideo() {
+  const file = document.getElementById('video-upload').files[0];
+  if (!file) return alert("Please select a file");
+
+  // 1. Get Presigned URL from Lambda backend
+  fetch('/api/presign-url', {
+    method: 'POST',
+    body: JSON.stringify({ filename: file.name }),
+    headers: { 'Content-Type': 'application/json' }
+  })
+  .then(res => res.json())
+  .then(data => {
+    // 2. Upload video to S3
+    fetch(data.url, {
+      method: 'PUT',
+      body: file
+    }).then(() => {
+      alert('Video uploaded successfully!');
+      // 3. Store metadata in RDS via backend
+      fetch('/api/save-metadata', {
+        method: 'POST',
+        body: JSON.stringify({ filename: file.name, s3_url: data.url }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+    });
+  });
+}
+
+// Auth logic to show upload section if logged in
+window.onload = () => {
+  const userLoggedIn = localStorage.getItem('auth_token'); // Simulated
+  if (userLoggedIn) {
+    document.getElementById('upload-section').style.display = 'block';
+  }
+}
+</script>
+
 </body>
 
   <!-- Add below inside your main content container -->
