@@ -5,12 +5,57 @@ pipeline {
     AWS_REGION = 'us-east-1'
     CLUSTER_NAME = 'my-eks-cluster'
     HELM_NAMESPACE = 'default'
+    TERRAFORM_DIR = 'terraform/phase2-eks'
   }
 
   stages {
     stage('Checkout Code') {
       steps {
         git url: 'https://github.com/Rajeshgupta123456789/Videotube.git', branch: 'main'
+      }
+    }
+
+    stage('Terraform Init & Plan') {
+      steps {
+        dir("${TERRAFORM_DIR}") {
+          withCredentials([[ 
+            $class: 'AmazonWebServicesCredentialsBinding', 
+            credentialsId: 'aws-creds',
+            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+          ]]) {
+            sh '''
+              export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+              export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+
+              terraform init
+              terraform plan -out=tfplan
+            '''
+          }
+        }
+      }
+    }
+
+    stage('Terraform Apply (Manual Approval)') {
+      steps {
+        timeout(time: 10, unit: 'MINUTES') {
+          input message: 'Do you want to proceed with terraform apply?'
+        }
+        dir("${TERRAFORM_DIR}") {
+          withCredentials([[ 
+            $class: 'AmazonWebServicesCredentialsBinding', 
+            credentialsId: 'aws-creds',
+            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+          ]]) {
+            sh '''
+              export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+              export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+
+              terraform apply -auto-approve tfplan
+            '''
+          }
+        }
       }
     }
 
@@ -152,7 +197,7 @@ pipeline {
 
   post {
     success {
-      echo '✅ Successfully deployed Frontend & Backend using Helm on EKS!'
+      echo '✅ Successfully deployed infrastructure, frontend & backend!'
     }
     failure {
       echo '❌ Pipeline failed. Please check the logs.'
