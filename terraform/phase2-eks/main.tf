@@ -24,7 +24,7 @@ module "iam" {
 }
 
 module "eks" {
-  source             = "./eks-cluster"
+  source             = "./eks"
   vpc_id             = module.vpc.vpc_id
   public_subnet_ids  = module.vpc.public_subnet_ids
   cluster_role_arn   = module.iam.eks_cluster_role_arn
