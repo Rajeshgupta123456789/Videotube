@@ -18,8 +18,8 @@ pipeline {
     stage('Terraform Init & Plan') {
       steps {
         dir('terraform/phase2-eks') {
-          withCredentials([[
-            $class: 'AmazonWebServicesCredentialsBinding',
+          withCredentials([[ 
+            $class: 'AmazonWebServicesCredentialsBinding', 
             credentialsId: 'aws-creds',
             accessKeyVariable: 'AWS_ACCESS_KEY_ID',
             secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
@@ -41,14 +41,12 @@ pipeline {
         script {
           def userApproval = input(
             message: 'Terraform Plan Complete. Apply?',
-            parameters: [
-              choice(name: 'APPROVE', choices: ['No', 'Yes'], description: 'Apply Terraform changes?')
-            ]
+            parameters: [choice(name: 'APPROVE', choices: ['No', 'Yes'], description: 'Apply Terraform changes?')]
           )
           if (userApproval == 'Yes') {
             dir('terraform/phase2-eks') {
-              withCredentials([[
-                $class: 'AmazonWebServicesCredentialsBinding',
+              withCredentials([[ 
+                $class: 'AmazonWebServicesCredentialsBinding', 
                 credentialsId: 'aws-creds',
                 accessKeyVariable: 'AWS_ACCESS_KEY_ID',
                 secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
@@ -70,57 +68,63 @@ pipeline {
 
     stage('Update kubeconfig') {
       steps {
-        withCredentials([[
-          $class: 'AmazonWebServicesCredentialsBinding',
-          credentialsId: 'aws-creds',
-          accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-          secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-        ]]) {
-          sh '''
-            export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
-            export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+          withCredentials([[ 
+            $class: 'AmazonWebServicesCredentialsBinding', 
+            credentialsId: 'aws-creds',
+            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+          ]]) {
+            sh '''
+              export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+              export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
 
-            aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
-          '''
+              aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
+            '''
+          }
         }
       }
     }
 
     stage('Login to ECR') {
       steps {
-        withCredentials([[
-          $class: 'AmazonWebServicesCredentialsBinding',
-          credentialsId: 'aws-creds',
-          accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-          secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-        ]]) {
-          sh '''
-            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin 208496905340.dkr.ecr.$AWS_REGION.amazonaws.com/videotube-backend
-          '''
+        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+          withCredentials([[ 
+            $class: 'AmazonWebServicesCredentialsBinding', 
+            credentialsId: 'aws-creds',
+            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+          ]]) {
+            sh '''
+              aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin 208496905340.dkr.ecr.$AWS_REGION.amazonaws.com/videotube-backend
+            '''
+          }
         }
       }
     }
 
     stage('Build & Push Backend Image') {
       steps {
-        dir('docker/backend') {
-          script {
-            def tag = "53"
-            def repo = "208496905340.dkr.ecr.${env.AWS_REGION}.amazonaws.com/videotube-backend"
-            def imageExists = sh(
-              script: "aws ecr describe-images --repository-name videotube-backend --image-ids imageTag=${tag} --region ${env.AWS_REGION}",
-              returnStatus: true
-            ) == 0
+        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+          dir('docker/backend') {
+            script {
+              def tag = "53"
+              def repo = "208496905340.dkr.ecr.${env.AWS_REGION}.amazonaws.com/videotube-backend"
+              def imageExists = sh(
+                script: "aws ecr describe-images --repository-name videotube-backend --image-ids imageTag=${tag} --region ${env.AWS_REGION}",
+                returnStatus: true
+              ) == 0
 
-            if (!imageExists) {
-              sh """
-                docker build -t ${repo}:${tag} .
-                docker tag ${repo}:${tag} ${repo}:latest
-                docker push ${repo}:${tag}
-                docker push ${repo}:latest
-              """
-            } else {
-              echo "✅ Backend image with tag ${tag} already exists. Skipping build."
+              if (!imageExists) {
+                sh """
+                  docker build -t ${repo}:${tag} .
+                  docker tag ${repo}:${tag} ${repo}:latest
+                  docker push ${repo}:${tag}
+                  docker push ${repo}:latest
+                """
+              } else {
+                echo "✅ Backend image with tag ${tag} already exists. Skipping build."
+              }
             }
           }
         }
@@ -129,24 +133,26 @@ pipeline {
 
     stage('Build & Push Frontend Image') {
       steps {
-        dir('docker/frontend') {
-          script {
-            def tag = "53"
-            def repo = "208496905340.dkr.ecr.${env.AWS_REGION}.amazonaws.com/videotube-frontend"
-            def imageExists = sh(
-              script: "aws ecr describe-images --repository-name videotube-frontend --image-ids imageTag=${tag} --region ${env.AWS_REGION}",
-              returnStatus: true
-            ) == 0
+        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+          dir('docker/frontend') {
+            script {
+              def tag = "53"
+              def repo = "208496905340.dkr.ecr.${env.AWS_REGION}.amazonaws.com/videotube-frontend"
+              def imageExists = sh(
+                script: "aws ecr describe-images --repository-name videotube-frontend --image-ids imageTag=${tag} --region ${env.AWS_REGION}",
+                returnStatus: true
+              ) == 0
 
-            if (!imageExists) {
-              sh """
-                docker build -t ${repo}:${tag} .
-                docker tag ${repo}:${tag} ${repo}:latest
-                docker push ${repo}:${tag}
-                docker push ${repo}:latest
-              """
-            } else {
-              echo "✅ Frontend image with tag ${tag} already exists. Skipping build."
+              if (!imageExists) {
+                sh """
+                  docker build -t ${repo}:${tag} .
+                  docker tag ${repo}:${tag} ${repo}:latest
+                  docker push ${repo}:${tag}
+                  docker push ${repo}:latest
+                """
+              } else {
+                echo "✅ Frontend image with tag ${tag} already exists. Skipping build."
+              }
             }
           }
         }
@@ -155,22 +161,24 @@ pipeline {
 
     stage('Deploy Frontend with Helm') {
       steps {
-        dir('helm/frontend') {
-          withCredentials([[
-            $class: 'AmazonWebServicesCredentialsBinding',
-            credentialsId: 'aws-creds',
-            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-          ]]) {
-            sh '''
-              export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
-              export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+          dir('helm/frontend') {
+            withCredentials([[ 
+              $class: 'AmazonWebServicesCredentialsBinding', 
+              credentialsId: 'aws-creds',
+              accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+              secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+            ]]) {
+              sh '''
+                export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+                export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
 
-              helm upgrade --install frontend . \
-                --namespace $HELM_NAMESPACE --create-namespace \
-                --set image.repository=208496905340.dkr.ecr.us-east-1.amazonaws.com/videotube-frontend \
-                --set image.tag=53
-            '''
+                helm upgrade --install frontend . \
+                  --namespace $HELM_NAMESPACE --create-namespace \
+                  --set image.repository=208496905340.dkr.ecr.us-east-1.amazonaws.com/videotube-frontend \
+                  --set image.tag=53
+              '''
+            }
           }
         }
       }
@@ -178,22 +186,24 @@ pipeline {
 
     stage('Deploy Backend with Helm') {
       steps {
-        dir('helm/backend') {
-          withCredentials([[
-            $class: 'AmazonWebServicesCredentialsBinding',
-            credentialsId: 'aws-creds',
-            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-          ]]) {
-            sh '''
-              export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
-              export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+          dir('helm/backend') {
+            withCredentials([[ 
+              $class: 'AmazonWebServicesCredentialsBinding', 
+              credentialsId: 'aws-creds',
+              accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+              secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+            ]]) {
+              sh '''
+                export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+                export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
 
-              helm upgrade --install backend . \
-                --namespace $HELM_NAMESPACE --create-namespace \
-                --set image.repository=208496905340.dkr.ecr.us-east-1.amazonaws.com/videotube-backend \
-                --set image.tag=53
-            '''
+                helm upgrade --install backend . \
+                  --namespace $HELM_NAMESPACE --create-namespace \
+                  --set image.repository=208496905340.dkr.ecr.us-east-1.amazonaws.com/videotube-backend \
+                  --set image.tag=53
+              '''
+            }
           }
         }
       }
@@ -212,20 +222,22 @@ pipeline {
         }
       }
       steps {
-        dir('terraform/phase2-eks') {
-          withCredentials([[
-            $class: 'AmazonWebServicesCredentialsBinding',
-            credentialsId: 'aws-creds',
-            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-          ]]) {
-            sh '''
-              export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
-              export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+          dir('terraform/phase2-eks') {
+            withCredentials([[ 
+              $class: 'AmazonWebServicesCredentialsBinding', 
+              credentialsId: 'aws-creds',
+              accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+              secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+            ]]) {
+              sh '''
+                export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+                export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
 
-              terraform init
-              terraform destroy -auto-approve
-            '''
+                terraform init
+                terraform destroy -auto-approve
+              '''
+            }
           }
         }
       }
