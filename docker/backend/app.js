@@ -2,10 +2,17 @@ const express = require('express');
 const app = express();
 const PORT = 3000;
 
+const client = require('prom-client');
+const collectDefaultMetrics = client.collectDefaultMetrics;
+collectDefaultMetrics();
+
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', client.register.contentType);
+  res.end(await client.register.metrics());
+});
 const redis = require("./redisClient");
 const metricsHandler = require("./metrics");
 
-app.get("/metrics", metricsHandler);
 
 
 app.get("/", (req, res) => {
