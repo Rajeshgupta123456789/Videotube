@@ -221,6 +221,9 @@ helm repo add prometheus-community https://prometheus-community.github.io/helm-c
 helm install prometheus prometheus-community/kube-prometheus-stack
 ```
 
+This project includes monitoring with Prometheus and Grafana deployed using Helm. Prometheus is installed via the `kube-prometheus-stack` chart in the `monitoring` namespace with temporary in-memory storage (`helm install monitoring prometheus-community/kube-prometheus-stack --namespace monitoring --create-namespace`). The backend exposes metrics at `/metrics` using `prom-client`, and a `ServiceMonitor` is applied to allow Prometheus to scrape them (`kubectl apply -f servicemonitor.yaml`). Grafana can be accessed via `kubectl port-forward svc/monitoring-grafana -n monitoring 3001:80` and comes pre-configured with Prometheus as a data source.
+
+
 Add Grafana dashboards:
 
 * Located in `monitoring/grafana/dashboards/youtube_dashboard.json`
