@@ -5,10 +5,10 @@ pipeline {
     AWS_REGION = 'us-east-1'
     CLUSTER_NAME = 'my-eks-cluster'
     HELM_NAMESPACE = 'default'
-    TERRAFORM_DIR = 'terraform/phase2-eks'
   }
 
   stages {
+
     stage('Checkout Code') {
       steps {
         git url: 'https://github.com/Rajeshgupta123456789/Videotube.git', branch: 'main'
@@ -17,9 +17,9 @@ pipeline {
 
     stage('Terraform Init & Plan') {
       steps {
-        dir("${TERRAFORM_DIR}") {
-          withCredentials([[ 
-            $class: 'AmazonWebServicesCredentialsBinding', 
+        dir('terraform/phase2-eks') {
+          withCredentials([[
+            $class: 'AmazonWebServicesCredentialsBinding',
             credentialsId: 'aws-creds',
             accessKeyVariable: 'AWS_ACCESS_KEY_ID',
             secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
@@ -38,22 +38,31 @@ pipeline {
 
     stage('Terraform Apply (Manual Approval)') {
       steps {
-        timeout(time: 10, unit: 'MINUTES') {
-          input message: 'Do you want to proceed with terraform apply?'
-        }
-        dir("${TERRAFORM_DIR}") {
-          withCredentials([[ 
-            $class: 'AmazonWebServicesCredentialsBinding', 
-            credentialsId: 'aws-creds',
-            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-          ]]) {
-            sh '''
-              export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
-              export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+        script {
+          def userApproval = input(
+            message: 'Terraform Plan Complete. Apply?',
+            parameters: [
+              choice(name: 'APPROVE', choices: ['No', 'Yes'], description: 'Apply Terraform changes?')
+            ]
+          )
+          if (userApproval == 'Yes') {
+            dir('terraform/phase2-eks') {
+              withCredentials([[
+                $class: 'AmazonWebServicesCredentialsBinding',
+                credentialsId: 'aws-creds',
+                accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+              ]]) {
+                sh '''
+                  export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+                  export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
 
-              terraform apply -auto-approve tfplan
-            '''
+                  terraform apply tfplan
+                '''
+              }
+            }
+          } else {
+            error('Terraform Apply was skipped by the user.')
           }
         }
       }
@@ -61,8 +70,8 @@ pipeline {
 
     stage('Update kubeconfig') {
       steps {
-        withCredentials([[ 
-          $class: 'AmazonWebServicesCredentialsBinding', 
+        withCredentials([[
+          $class: 'AmazonWebServicesCredentialsBinding',
           credentialsId: 'aws-creds',
           accessKeyVariable: 'AWS_ACCESS_KEY_ID',
           secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
@@ -79,8 +88,8 @@ pipeline {
 
     stage('Login to ECR') {
       steps {
-        withCredentials([[ 
-          $class: 'AmazonWebServicesCredentialsBinding', 
+        withCredentials([[
+          $class: 'AmazonWebServicesCredentialsBinding',
           credentialsId: 'aws-creds',
           accessKeyVariable: 'AWS_ACCESS_KEY_ID',
           secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
@@ -111,7 +120,7 @@ pipeline {
                 docker push ${repo}:latest
               """
             } else {
-              echo "✅ Backend image with tag ${tag} already exists in ECR. Skipping build."
+              echo "✅ Backend image with tag ${tag} already exists. Skipping build."
             }
           }
         }
@@ -137,7 +146,7 @@ pipeline {
                 docker push ${repo}:latest
               """
             } else {
-              echo "✅ Frontend image with tag ${tag} already exists in ECR. Skipping build."
+              echo "✅ Frontend image with tag ${tag} already exists. Skipping build."
             }
           }
         }
@@ -146,18 +155,16 @@ pipeline {
 
     stage('Deploy Frontend with Helm') {
       steps {
-        withCredentials([[ 
-          $class: 'AmazonWebServicesCredentialsBinding', 
-          credentialsId: 'aws-creds',
-          accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-          secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-        ]]) {
-          dir('helm/frontend') {
+        dir('helm/frontend') {
+          withCredentials([[
+            $class: 'AmazonWebServicesCredentialsBinding',
+            credentialsId: 'aws-creds',
+            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+          ]]) {
             sh '''
               export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
               export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
-
-              aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
 
               helm upgrade --install frontend . \
                 --namespace $HELM_NAMESPACE --create-namespace \
@@ -171,18 +178,16 @@ pipeline {
 
     stage('Deploy Backend with Helm') {
       steps {
-        withCredentials([[ 
-          $class: 'AmazonWebServicesCredentialsBinding', 
-          credentialsId: 'aws-creds',
-          accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-          secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-        ]]) {
-          dir('helm/backend') {
+        dir('helm/backend') {
+          withCredentials([[
+            $class: 'AmazonWebServicesCredentialsBinding',
+            credentialsId: 'aws-creds',
+            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+          ]]) {
             sh '''
               export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
               export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
-
-              aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
 
               helm upgrade --install backend . \
                 --namespace $HELM_NAMESPACE --create-namespace \
@@ -193,14 +198,46 @@ pipeline {
         }
       }
     }
+
+    stage('Terraform Destroy (Manual)') {
+      when {
+        beforeInput true
+        expression {
+          return input(
+            message: "⚠️ Do you want to destroy all Terraform resources?",
+            parameters: [
+              choice(name: 'DESTROY_ENV', choices: ['No', 'Yes'], description: 'Select Yes to destroy infrastructure')
+            ]
+          ) == 'Yes'
+        }
+      }
+      steps {
+        dir('terraform/phase2-eks') {
+          withCredentials([[
+            $class: 'AmazonWebServicesCredentialsBinding',
+            credentialsId: 'aws-creds',
+            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+          ]]) {
+            sh '''
+              export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+              export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+
+              terraform init
+              terraform destroy -auto-approve
+            '''
+          }
+        }
+      }
+    }
   }
 
   post {
     success {
-      echo '✅ Successfully deployed infrastructure, frontend & backend!'
+      echo '✅ Pipeline completed successfully.'
     }
     failure {
-      echo '❌ Pipeline failed. Please check the logs.'
+      echo '❌ Pipeline failed. Check logs.'
     }
   }
 }
