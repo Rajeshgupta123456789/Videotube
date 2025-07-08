@@ -17,20 +17,22 @@ pipeline {
 
     stage('Terraform Init & Plan') {
       steps {
-        dir('terraform/phase2-eks') {
-          withCredentials([[ 
-            $class: 'AmazonWebServicesCredentialsBinding', 
-            credentialsId: 'aws-creds',
-            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-          ]]) {
-            sh '''
-              export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
-              export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+          dir('terraform/phase2-eks') {
+            withCredentials([[
+              $class: 'AmazonWebServicesCredentialsBinding',
+              credentialsId: 'aws-creds',
+              accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+              secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+            ]]) {
+              sh '''
+                export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+                export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
 
-              terraform init
-              terraform plan -out=tfplan
-            '''
+                terraform init
+                terraform plan -out=tfplan
+              '''
+            }
           }
         }
       }
@@ -38,29 +40,31 @@ pipeline {
 
     stage('Terraform Apply (Manual Approval)') {
       steps {
-        script {
-          def userApproval = input(
-            message: 'Terraform Plan Complete. Apply?',
-            parameters: [choice(name: 'APPROVE', choices: ['No', 'Yes'], description: 'Apply Terraform changes?')]
-          )
-          if (userApproval == 'Yes') {
-            dir('terraform/phase2-eks') {
-              withCredentials([[ 
-                $class: 'AmazonWebServicesCredentialsBinding', 
-                credentialsId: 'aws-creds',
-                accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-              ]]) {
-                sh '''
-                  export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
-                  export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+          script {
+            def userApproval = input(
+              message: 'Terraform Plan Complete. Apply?',
+              parameters: [choice(name: 'APPROVE', choices: ['No', 'Yes'], description: 'Apply Terraform changes?')]
+            )
+            if (userApproval == 'Yes') {
+              dir('terraform/phase2-eks') {
+                withCredentials([[
+                  $class: 'AmazonWebServicesCredentialsBinding',
+                  credentialsId: 'aws-creds',
+                  accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                  secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                ]]) {
+                  sh '''
+                    export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+                    export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
 
-                  terraform apply tfplan
-                '''
+                    terraform apply tfplan
+                  '''
+                }
               }
+            } else {
+              echo '⏩ Terraform Apply was skipped by user.'
             }
-          } else {
-            error('Terraform Apply was skipped by the user.')
           }
         }
       }
@@ -69,8 +73,8 @@ pipeline {
     stage('Update kubeconfig') {
       steps {
         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-          withCredentials([[ 
-            $class: 'AmazonWebServicesCredentialsBinding', 
+          withCredentials([[
+            $class: 'AmazonWebServicesCredentialsBinding',
             credentialsId: 'aws-creds',
             accessKeyVariable: 'AWS_ACCESS_KEY_ID',
             secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
@@ -89,8 +93,8 @@ pipeline {
     stage('Login to ECR') {
       steps {
         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-          withCredentials([[ 
-            $class: 'AmazonWebServicesCredentialsBinding', 
+          withCredentials([[
+            $class: 'AmazonWebServicesCredentialsBinding',
             credentialsId: 'aws-creds',
             accessKeyVariable: 'AWS_ACCESS_KEY_ID',
             secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
@@ -163,8 +167,8 @@ pipeline {
       steps {
         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
           dir('helm/frontend') {
-            withCredentials([[ 
-              $class: 'AmazonWebServicesCredentialsBinding', 
+            withCredentials([[
+              $class: 'AmazonWebServicesCredentialsBinding',
               credentialsId: 'aws-creds',
               accessKeyVariable: 'AWS_ACCESS_KEY_ID',
               secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
@@ -188,8 +192,8 @@ pipeline {
       steps {
         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
           dir('helm/backend') {
-            withCredentials([[ 
-              $class: 'AmazonWebServicesCredentialsBinding', 
+            withCredentials([[
+              $class: 'AmazonWebServicesCredentialsBinding',
               credentialsId: 'aws-creds',
               accessKeyVariable: 'AWS_ACCESS_KEY_ID',
               secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
@@ -224,8 +228,8 @@ pipeline {
       steps {
         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
           dir('terraform/phase2-eks') {
-            withCredentials([[ 
-              $class: 'AmazonWebServicesCredentialsBinding', 
+            withCredentials([[
+              $class: 'AmazonWebServicesCredentialsBinding',
               credentialsId: 'aws-creds',
               accessKeyVariable: 'AWS_ACCESS_KEY_ID',
               secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
@@ -245,11 +249,8 @@ pipeline {
   }
 
   post {
-    success {
-      echo '✅ Pipeline completed successfully.'
-    }
-    failure {
-      echo '❌ Pipeline failed. Check logs.'
+    always {
+      echo '📦 Pipeline finished. Check logs above.'
     }
   }
 }
